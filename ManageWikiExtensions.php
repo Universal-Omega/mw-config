@@ -2454,6 +2454,19 @@ $wgManageWikiExtensions = [
 				]
 			]
 		],
+		'wikibasemediainfo' => [
+			'name' => 'WikibaseMediaInfo',
+			'linkPage' => 'https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:WikibaseMediaInfo',
+			'var' => 'wmgUseWikibaseMediaInfo',
+			'conflicts' => false,
+			'requires' => [
+				'extensions' => [
+					'universallanguageselector',
+					'wikibaseclient',
+					'wikibaserepository',
+				],
+			],
+		],
 		'wikicategorytagcloud' => [
 			'name' => 'WikiCategoryTagCloud',
 			'linkPage' => 'https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:WikiCategoryTagCloud',
