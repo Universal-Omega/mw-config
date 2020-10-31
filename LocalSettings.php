@@ -2136,44 +2136,8 @@ $wi->config->settings = [
 				'userrights' => true,
 			],
 		],
-		'+autocountwiki' => [
-			'authors' => [
-				'torunblocked' => true,
-				'read' => true,
-			],
-		],
-		'+bitcoindebateswiki' => [
-			'emailconfirmed' => [
-				'read' => true,
-			],
-		],
 		'+cmgwiki' => [
 			'gst' => [
-				'read' => true,
-			],
-		],
-		'+cyclonepediawiki' => [
-			'bureaucrat' => [
-				'bureaucrat' => true,
-			],
-			'extendedconfirmed' => [
-				'extendedconfirmed' => true,
-			],
-			'sysop' => [
-				'extendedconfirmed' => true,
-			],
-		],
-		'+dpwiki' => [
-			'bureaucrat' => [
-				'bureaucrat' => true,
-				'respected' => true,
-			],
-			'respected' => [
-				'respected' => true,
-			],
-		],
-		'+enigmawiki' => [
-			'scribe' => [
 				'read' => true,
 			],
 		],
@@ -2239,11 +2203,6 @@ $wi->config->settings = [
 			],
 			'UserType7' => [
 				'UserType7' => true,
-			],
-		],
-		'+jacksonheightswiki' => [
-			'emailconfirmed' => [
-				'read' => true,
 			],
 		],
 		'+jayuwikiwiki' => [
