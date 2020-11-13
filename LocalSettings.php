@@ -2621,7 +2621,6 @@ $wi->config->settings = [
 	],
 	'wgMinervaAlwaysShowLanguageButton' => [
 		'default' => true,
-		'solarawiki' => false,
 	],
 
 	// miraheze specific config
@@ -3388,7 +3387,7 @@ $wi->config->settings = [
 		],
 		'spiralwiki' => [
 			'*' => [
-				'en' => 'English is the source language.',
+				'en' => 'English is the source g.',
 			],
 		],
 	],
