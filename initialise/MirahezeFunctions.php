@@ -98,28 +98,42 @@ class MirahezeFunctions {
 		}
 	}
 
-	public function readCache() {
-		global $wgCreateWikiCacheDirectory, $wgConf;
+	public function getCacheArray() {
+		global $wgCreateWikiCacheDirectory;
 
 		// If we don't have a cache file, let us exit here
 		if ( !file_exists( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ) ) {
+			return false;
+		}
+
+		$this->cacheArray = json_decode( file_get_contents( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ), true );
+
+		return $this->cacheArray;
+	}
+
+
+
+	public function readCache() {
+		global $wgConf;
+
+		$this->cacheArray ??= $this->getCacheArray();
+ 
+		if ( !$this->cacheArray ) {
 			return;
 		}
 
-		$cacheArray = json_decode( file_get_contents( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ), true );
-
 		// Assign top level variables first
-		$wgConf->settings['wgSitename'][$this->dbname] = $cacheArray['core']['wgSitename'];
-		$wgConf->settings['wgLanguageCode'][$this->dbname] = $cacheArray['core']['wgLanguageCode'];
-		if ( $cacheArray['url'] ) {
-			$wgConf->settings['wgServer'][$this->dbname] = $cacheArray['url'];
+		$wgConf->settings['wgSitename'][$this->dbname] = $this->cacheArray['core']['wgSitename'];
+		$wgConf->settings['wgLanguageCode'][$this->dbname] = $this->cacheArray['core']['wgLanguageCode'];
+		if ( $this->cacheArray['url'] ) {
+			$wgConf->settings['wgServer'][$this->dbname] = $this->cacheArray['url'];
 		}
 
 		// Assign states
-		$wgConf->settings['cwPrivate'][$this->dbname] = (bool)$cacheArray['states']['private'];
-		$wgConf->settings['cwClosed'][$this->dbname] = (bool)$cacheArray['states']['closed'];
-		$wgConf->settings['cwInactive'][$this->dbname] = ( $cacheArray['states']['inactive'] == 'exempt' ) ? 'exempt' : (bool)$cacheArray['states']['inactive'];
-		$wgConf->settings['cwExperimental'][$this->dbname] = (bool)( $cacheArray['states']['experimental'] ?? false );
+		$wgConf->settings['cwPrivate'][$this->dbname] = (bool)$this->cacheArray['states']['private'];
+		$wgConf->settings['cwClosed'][$this->dbname] = (bool)$this->cacheArray['states']['closed'];
+		$wgConf->settings['cwInactive'][$this->dbname] = ( $this->cacheArray['states']['inactive'] == 'exempt' ) ? 'exempt' : (bool)$this->cacheArray['states']['inactive'];
+		$wgConf->settings['cwExperimental'][$this->dbname] = (bool)( $this->cacheArray['states']['experimental'] ?? false );
 
 		$server = $wgConf->settings['wgServer'][$this->dbname] ?? $wgConf->settings['wgServer']['default'];
 		$tags = [];
@@ -128,38 +142,38 @@ class MirahezeFunctions {
 			$tags[] = self::getRealm();
 		}
 
-		foreach ( $cacheArray['states'] as $state => $value ) {
+		foreach ( $this->cacheArray['states'] as $state => $value ) {
 			if ( $value !== 'exempt' && (bool)$value ) {
 				$tags[] = $state;
 			}
 		}
 
-		$wgConf->siteParamsCallback = static function () use ( $cacheArray, $tags ) {
+		$wgConf->siteParamsCallback = function () use ( $tags ) {
 			return [
 				'suffix' => null,
-				'lang' => $cacheArray['core']['wgLanguageCode'],
-				'tags' => array_merge( ( $cacheArray['extensions'] ?? [] ), $tags ),
+				'lang' => $this->cacheArray['core']['wgLanguageCode'],
+				'tags' => array_merge( ( $this->cacheArray['extensions'] ?? [] ), $tags ),
 				'params' => []
 			];
 		};
 
 		// Assign settings
-		if ( isset( $cacheArray['settings'] ) ) {
-			foreach ( (array)$cacheArray['settings'] as $var => $val ) {
+		if ( isset( $this->cacheArray['settings'] ) ) {
+			foreach ( (array)$this->cacheArray['settings'] as $var => $val ) {
 				$wgConf->settings[$var][$this->dbname] = $val;
 			}
 		}
 
 		// Assign extensions variables now
-		if ( isset( $cacheArray['extensions'] ) ) {
-			foreach ( (array)$cacheArray['extensions'] as $var ) {
+		if ( isset( $this->cacheArray['extensions'] ) ) {
+			foreach ( (array)$this->cacheArray['extensions'] as $var ) {
 				$wgConf->settings[$var][$this->dbname] = true;
 			}
 		}
 
 		// Handle namespaces - additional settings will be done in ManageWiki
-		if ( isset( $cacheArray['namespaces'] ) ) {
-			foreach ( (array)$cacheArray['namespaces'] as $name => $ns ) {
+		if ( isset( $this->cacheArray['namespaces'] ) ) {
+			foreach ( (array)$this->cacheArray['namespaces'] as $name => $ns ) {
 				$wgConf->settings['wgExtraNamespaces'][$this->dbname][(int)$ns['id']] = $name;
 				$wgConf->settings['wgNamespacesToBeSearchedDefault'][$this->dbname][(int)$ns['id']] = $ns['searchable'];
 				$wgConf->settings['wgNamespacesWithSubpages'][$this->dbname][(int)$ns['id']] = $ns['subpages'];
@@ -180,8 +194,8 @@ class MirahezeFunctions {
 		}
 
 		// Handle Permissions
-		if ( isset( $cacheArray['permissions'] ) ) {
-			foreach ( (array)$cacheArray['permissions'] as $group => $perm ) {
+		if ( isset( $this->cacheArray['permissions'] ) ) {
+			foreach ( (array)$this->cacheArray['permissions'] as $group => $perm ) {
 				foreach ( (array)$perm['permissions'] as $id => $right ) {
 					$wgConf->settings['wgGroupPermissions'][$this->dbname][$group][$right] = true;
 				}
@@ -223,12 +237,11 @@ class MirahezeFunctions {
 			$wgExtensionDirectory, $wgStyleDirectory,
 			$wgManageWikiExtensions;
 
-		// If we don't have a cache file, let us exit here
-		if ( !file_exists( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ) ) {
+		$this->cacheArray ??= $this->getCacheArray();
+
+		if ( !$this->cacheArray ) {
 			return;
 		}
-
-		$cacheArray = json_decode( file_get_contents( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ), true );
 
 		if ( !file_exists( "{$wgCreateWikiCacheDirectory}/extension-list.json" ) ) {
 			$queue = array_fill_keys( array_merge(
@@ -256,11 +269,11 @@ class MirahezeFunctions {
 			$list = json_decode( file_get_contents( "{$wgCreateWikiCacheDirectory}/extension-list.json" ), true );
 		}
 
-		if ( isset( $cacheArray['extensions'] ) ) {
+		if ( isset( $this->cacheArray['extensions'] ) ) {
 			foreach ( $wgManageWikiExtensions as $name => $ext ) {
 				$wgConf->settings[ $ext['var'] ]['default'] = false;
 
-				if ( in_array( $ext['var'], (array)$cacheArray['extensions'] ) &&
+				if ( in_array( $ext['var'], (array)$this->cacheArray['extensions'] ) &&
 					!in_array( $name, $this->disabledExtensions )
 				) {
 					$path = $list[ $ext['name'] ] ?? false;
