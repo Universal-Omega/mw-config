@@ -45,6 +45,10 @@ $wgConf->wikis = $wi::getLocalDatabases()[ $wi::getRealm() ];
 
 $wgLocalDatabases = $wgConf->getLocalDatabases();
 
+$wi->initialise();
+
+$wgDBname = $wi->dbname;
+
 // Load PrivateSettings (e.g. $wgDBpassword)
 require_once '/srv/mediawiki/config/PrivateSettings.php';
 
@@ -60,8 +64,6 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 $wgPasswordSender = 'noreply@miraheze.org';
 
 $wmgUploadHostname = 'static.miraheze.org';
-
-$wi->initialise();
 
 $wgConf->settings = [
 	// invalidates user sessions - do not change unless it is an emergency.
