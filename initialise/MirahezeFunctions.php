@@ -1,5 +1,12 @@
 <?php
 class MirahezeFunctions {
+	public $hostname;
+	public $dbname;
+	public $server;
+	public $sitename;
+	public $missing = false;
+	public $disabledExtensions = [];
+
 	public const TAGS = [
 		'default' => 'default',
 		'beta' => 'betaheze',
@@ -16,6 +23,7 @@ class MirahezeFunctions {
 
 	public function initialise() {
 		$this->dbname = self::getCurrentDatabase();
+		$this->hostname = $_SERVER['HTTP_HOST'] ?? 'undefined';
 	}
 
 	public function getLocalDatabases() {
@@ -86,6 +94,184 @@ class MirahezeFunctions {
 		foreach ( self::SUFFIXES as $suffix => $site ) {
 			if ( $explode[1] == $site ) {
 				return $explode[0] . $suffix;
+			}
+		}
+	}
+
+	public function readCache() {
+		global $wgCreateWikiCacheDirectory, $wgConf;
+
+		// If we don't have a cache file, let us exit here
+		if ( !file_exists( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ) ) {
+			return;
+		}
+
+		$cacheArray = json_decode( file_get_contents( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ), true );
+
+		// Assign top level variables first
+		$wgConf->settings['wgSitename'][$this->dbname] = $cacheArray['core']['wgSitename'];
+		$wgConf->settings['wgLanguageCode'][$this->dbname] = $cacheArray['core']['wgLanguageCode'];
+		if ( $cacheArray['url'] ) {
+			$wgConf->settings['wgServer'][$this->dbname] = $cacheArray['url'];
+		}
+
+		// Assign states
+		$wgConf->settings['cwPrivate'][$this->dbname] = (bool)$cacheArray['states']['private'];
+		$wgConf->settings['cwClosed'][$this->dbname] = (bool)$cacheArray['states']['closed'];
+		$wgConf->settings['cwInactive'][$this->dbname] = ( $cacheArray['states']['inactive'] == 'exempt' ) ? 'exempt' : (bool)$cacheArray['states']['inactive'];
+		$wgConf->settings['cwExperimental'][$this->dbname] = (bool)( $cacheArray['states']['experimental'] ?? false );
+
+		$server = $wgConf->settings['wgServer'][$this->dbname] ?? $wgConf->settings['wgServer']['default'];
+		$tags = [];
+
+		foreach ( self::REALMS as $realmServer => $tag ) {
+			if ( preg_match( '/^(.*).' . $realmServer . '$/', $server ) ) {
+				$tags[] = $tag;
+			}
+		}
+
+		foreach ( $cacheArray['states'] as $state => $value ) {
+			if ( $value !== 'exempt' && (bool)$value ) {
+				$tags[] = $state;
+			}
+		}
+
+		$wgConf->siteParamsCallback = static function () use ( $cacheArray, $tags ) {
+			return [
+				'suffix' => null,
+				'lang' => $cacheArray['core']['wgLanguageCode'],
+				'tags' => array_merge( ( $cacheArray['extensions'] ?? [] ), $tags ),
+				'params' => []
+			];
+		};
+
+		// Assign settings
+		if ( isset( $cacheArray['settings'] ) ) {
+			foreach ( (array)$cacheArray['settings'] as $var => $val ) {
+				$wgConf->settings[$var][$this->dbname] = $val;
+			}
+		}
+
+		// Assign extensions variables now
+		if ( isset( $cacheArray['extensions'] ) ) {
+			foreach ( (array)$cacheArray['extensions'] as $var ) {
+				$wgConf->settings[$var][$this->dbname] = true;
+			}
+		}
+
+		// Handle namespaces - additional settings will be done in ManageWiki
+		if ( isset( $cacheArray['namespaces'] ) ) {
+			foreach ( (array)$cacheArray['namespaces'] as $name => $ns ) {
+				$wgConf->settings['wgExtraNamespaces'][$this->dbname][(int)$ns['id']] = $name;
+				$wgConf->settings['wgNamespacesToBeSearchedDefault'][$this->dbname][(int)$ns['id']] = $ns['searchable'];
+				$wgConf->settings['wgNamespacesWithSubpages'][$this->dbname][(int)$ns['id']] = $ns['subpages'];
+				$wgConf->settings['wgNamespaceContentModels'][$this->dbname][(int)$ns['id']] = $ns['contentmodel'];
+
+				if ( $ns['content'] ) {
+					$wgConf->settings['wgContentNamespaces'][$this->dbname][] = (int)$ns['id'];
+				}
+
+				if ( $ns['protection'] ) {
+					$wgConf->settings['wgNamespaceProtection'][$this->dbname][(int)$ns['id']] = [ $ns['protection'] ];
+				}
+
+				foreach ( (array)$ns['aliases'] as $alias ) {
+					$wgConf->settings['wgNamespaceAliases'][$this->dbname][$alias] = (int)$ns['id'];
+				}
+			}
+		}
+
+		// Handle Permissions
+		if ( isset( $cacheArray['permissions'] ) ) {
+			foreach ( (array)$cacheArray['permissions'] as $group => $perm ) {
+				foreach ( (array)$perm['permissions'] as $id => $right ) {
+					$wgConf->settings['wgGroupPermissions'][$this->dbname][$group][$right] = true;
+				}
+
+				foreach ( (array)$perm['addgroups'] as $name ) {
+					$wgConf->settings['wgAddGroups'][$this->dbname][$group][] = $name;
+				}
+
+				foreach ( (array)$perm['removegroups'] as $name ) {
+					$wgConf->settings['wgRemoveGroups'][$this->dbname][$group][] = $name;
+				}
+
+				foreach ( (array)$perm['addself'] as $name ) {
+					$wgConf->settings['wgGroupsAddToSelf'][$this->dbname][$group][] = $name;
+				}
+
+				foreach ( (array)$perm['removeself'] as $name ) {
+					$wgConf->settings['wgGroupsRemoveFromSelf'][$this->dbname][$group][] = $name;
+				}
+
+				if ( $perm['autopromote'] !== null ) {
+					$onceId = array_search( 'once', $perm['autopromote'] );
+
+					if ( !is_bool( $onceId ) ) {
+						unset( $perm['autopromote'][$onceId] );
+						$promoteVar = 'wgAutopromoteOnce';
+					} else {
+						$promoteVar = 'wgAutopromote';
+					}
+
+					$wgConf->settings[$promoteVar][$this->dbname][$group] = $perm['autopromote'];
+				}
+			}
+		}
+	}
+
+	public function loadExtensions() {
+		global $wgCreateWikiCacheDirectory, $wgConf,
+			$wgExtensionDirectory, $wgStyleDirectory,
+			$wgManageWikiExtensions;
+
+		// If we don't have a cache file, let us exit here
+		if ( !file_exists( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ) ) {
+			return;
+		}
+
+		$cacheArray = json_decode( file_get_contents( $wgCreateWikiCacheDirectory . '/' . $this->dbname . '.json' ), true );
+
+		if ( !file_exists( "{$wgCreateWikiCacheDirectory}/extension-list.json" ) ) {
+			$queue = array_fill_keys( array_merge(
+					glob( $wgExtensionDirectory . '/*/extension*.json' ),
+					glob( $wgStyleDirectory . '/*/skin.json' )
+				),
+			true );
+
+			$processor = new ExtensionProcessor();
+
+			foreach ( $queue as $path => $mtime ) {
+				$json = file_get_contents( $path );
+				$info = json_decode( $json, true );
+				$version = $info['manifest_version'];
+
+				$processor->extractInfo( $path, $info, $version );
+			}
+
+			$data = $processor->getExtractedInfo();
+
+			$list = array_column( $data['credits'], 'path', 'name' );
+
+			file_put_contents( "{$wgCreateWikiCacheDirectory}/extension-list.json", json_encode( $list ), LOCK_EX );
+		} else {
+			$list = json_decode( file_get_contents( "{$wgCreateWikiCacheDirectory}/extension-list.json" ), true );
+		}
+
+		if ( isset( $cacheArray['extensions'] ) ) {
+			foreach ( $wgManageWikiExtensions as $name => $ext ) {
+				$wgConf->settings[ $ext['var'] ]['default'] = false;
+
+				if ( in_array( $ext['var'], (array)$cacheArray['extensions'] ) &&
+					!in_array( $name, $this->disabledExtensions )
+				) {
+					$path = $list[ $ext['name'] ] ?? false;
+
+					$pathInfo = pathinfo( $path )['extension'] ?? false;
+					if ( $path && $pathInfo === 'json' ) {
+						ExtensionRegistry::getInstance()->queue( $path );
+					}
+				}
 			}
 		}
 	}
