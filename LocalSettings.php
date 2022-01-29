@@ -36,10 +36,12 @@ if ( ( $forceprofile == 1 || PHP_SAPI === 'cli' ) && extension_loaded( 'tideways
 
 require_once '/srv/mediawiki/config/initialise/MirahezeFunctions.php';
 
+$wi = new MirahezeFunctions;
+
 $wgConf = new SiteConfiguration;
 
-$wgConf->suffixes = array_keys( MirahezeFunctions::SUFFIXES );
-$wgConf->wikis = MirahezeFunctions::getLocalDatabases()[ MirahezeFunctions::getRealm() ];
+$wgConf->suffixes = array_keys( $wi::SUFFIXES );
+$wgConf->wikis = $wi::getLocalDatabases()[ $wi::getRealm() ];
 
 $wgConf->fullLoadCallback = 'wfLoadSettings';
 
@@ -65,7 +67,11 @@ $wgPasswordSender = 'noreply@miraheze.org';
 
 $wmgUploadHostname = 'static.miraheze.org';
 
+$wi->initialise();
+
 function wfGetSettings() {
+	global $wgPasswordSender, $wmgUploadHostname, $wi;
+
 	return [
 	// invalidates user sessions - do not change unless it is an emergency.
 	'wgAuthenticationTokenVersion' => [
