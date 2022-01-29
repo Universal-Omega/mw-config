@@ -22,8 +22,11 @@ class MirahezeFunctions {
 	];
 
 	public function initialise() {
-		$this->dbname = self::getCurrentDatabase();
 		$this->hostname = $_SERVER['HTTP_HOST'] ?? 'undefined';
+		$this->dbname = $this->getCurrentDatabase();
+		$this->server = $this->getServer();
+		$this->sitename = $this->getSitename();
+		$this->missing = $this->isMissing();
 	}
 
 	public function getLocalDatabases() {
@@ -78,14 +81,12 @@ class MirahezeFunctions {
 		return self::REALMS[$domain] ?? 'default';
 	}
 
-	public static function getCurrentDatabase() {
+	public function getCurrentDatabase() {
 		if ( defined( 'MW_DB' ) ) {
 			return MW_DB;
 		}
 
-		$hostname = $_SERVER['HTTP_HOST'] ?? 'undefined';
-
-		$explode = explode( '.', $hostname, 2 );
+		$explode = explode( '.', $this->hostname, 2 );
 
 		if ( $explode[0] == 'www' ) {
 			$explode = explode( '.', $explode[1], 2 );
@@ -96,6 +97,44 @@ class MirahezeFunctions {
 				return $explode[0] . $suffix;
 			}
 		}
+	}
+
+	public function getServer() {
+		global $wgConf;
+
+		$this->cacheArray ??= $this->getCacheArray();
+
+		$explode = explode( '.', $this->hostname, 2 );
+
+		if ( $explode[0] == 'www' ) {
+			$explode = explode( '.', $explode[1], 2 );
+		}
+
+		$domain = explode( '.', $_SERVER['SERVER_NAME'], 2 )[1];
+		$subdomain = $explode[0] . '.' . $domain;
+
+		$server = $this->cacheArray['url'] ?: ( 'https://' . $subdomain . '.' . $domain );
+		$wgConf->settings['wgServer'][$this->dbname] = $server;
+
+		return $server;
+	}
+
+	public function getSitename() {
+		global $wgConf;
+
+		$this->cacheArray ??= $this->getCacheArray();
+
+		$siteName = $this->cacheArray['core']['wgSitename'];
+
+		$wgConf->settings['wgSitename'][$this->dbname] = $siteName;
+
+		return $siteName;
+	}
+
+	public function isMissing() {
+		global $wgConf;
+
+		return !in_array( $this->getCurrentDatabase(), $wgConf->wikis );
 	}
 
 	public function getCacheArray() {
@@ -111,8 +150,6 @@ class MirahezeFunctions {
 		return $this->cacheArray;
 	}
 
-
-
 	public function readCache() {
 		global $wgConf;
 
@@ -123,7 +160,6 @@ class MirahezeFunctions {
 		}
 
 		// Assign top level variables first
-		$wgConf->settings['wgSitename'][$this->dbname] = $this->cacheArray['core']['wgSitename'];
 		$wgConf->settings['wgLanguageCode'][$this->dbname] = $this->cacheArray['core']['wgLanguageCode'];
 		if ( $this->cacheArray['url'] ) {
 			$wgConf->settings['wgServer'][$this->dbname] = $this->cacheArray['url'];
