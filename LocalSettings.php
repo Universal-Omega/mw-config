@@ -37,8 +37,10 @@ if ( ( $forceprofile == 1 || PHP_SAPI === 'cli' ) && extension_loaded( 'tideways
 require_once '/srv/mediawiki/config/initialise/MirahezeFunctions.php';
 
 $wgConf = new SiteConfiguration;
-$wgConf->suffixes = MirahezeFunctions::SUFFIXES;
+
+$wgConf->suffixes = array_keys( MirahezeFunctions::SUFFIXES );
 $wgConf->wikis = MirahezeFunctions::getLocalDatabases()[ MirahezeFunctions::getRealm() ];
+
 $wgConf->fullLoadCallback = 'wfLoadSettings';
 
 function wfLoadSettings( $config ) {
