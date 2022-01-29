@@ -10,16 +10,12 @@ class MirahezeFunctions {
 	];
 
 	public const SUFFIXES = [
-		'wiki',
-		'wikibeta',
+		'wiki' => 'miraheze.org',
+		'wikibeta' => 'betaheze.org',
 	];
 
-	public static function initialise() {
-		global $wgConf;
-		$wgConf = new SiteConfiguration();
-
-		$wgConf->suffixes = self::SUFFIXES;
-		$wgConf->wikis = self::getLocalDatabases()[ self::getRealm() ];
+	public function initialise() {
+		$this->dbname = self::getCurrentDatabase();
 	}
 
 	public function getLocalDatabases() {
@@ -72,5 +68,25 @@ class MirahezeFunctions {
 		$domain = explode( '.', $_SERVER['SERVER_NAME'], 2 )[1];
 
 		return self::REALMS[$domain] ?? 'default';
+	}
+
+	public static function getCurrentDatabase() {
+		if ( defined( 'MW_DB' ) ) {
+			return MW_DB;
+		}
+
+		$hostname = $_SERVER['HTTP_HOST'] ?? 'undefined';
+
+		$explode = explode( '.', $hostname, 2 );
+
+		if ( $explode[0] == 'www' ) {
+			$explode = explode( '.', $explode[1], 2 );
+		}
+
+		foreach ( self::SUFFIXES as $suffix => $site ) {
+			if ( $explode[1] == $site ) {
+				return $explode[0] . $suffix;
+			}
+		}
 	}
 }
