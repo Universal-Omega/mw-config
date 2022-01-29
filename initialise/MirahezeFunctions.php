@@ -124,10 +124,8 @@ class MirahezeFunctions {
 		$server = $wgConf->settings['wgServer'][$this->dbname] ?? $wgConf->settings['wgServer']['default'];
 		$tags = [];
 
-		foreach ( self::REALMS as $realmServer => $tag ) {
-			if ( preg_match( '/^(.*).' . $realmServer . '$/', $server ) ) {
-				$tags[] = $tag;
-			}
+		if ( self::getRealm() !== 'default' ) {
+			$tags[] = self::getRealm();
 		}
 
 		foreach ( $cacheArray['states'] as $state => $value ) {
