@@ -43,12 +43,6 @@ $wgConf = new SiteConfiguration;
 $wgConf->suffixes = array_keys( $wi::SUFFIXES );
 $wgConf->wikis = $wi::getLocalDatabases()[ $wi::getRealm() ];
 
-$wgConf->fullLoadCallback = 'wfLoadSettings';
-
-function wfLoadSettings( $config ) {
-	$config->settings = wfGetSettings();
-}
-
 $wgLocalDatabases = $wgConf->getLocalDatabases();
 
 // Load PrivateSettings (e.g. $wgDBpassword)
@@ -69,10 +63,7 @@ $wmgUploadHostname = 'static.miraheze.org';
 
 $wi->initialise();
 
-function wfGetSettings() {
-	global $wgPasswordSender, $wmgUploadHostname, $wi;
-
-	return [
+$wgConf->settings = [
 	// invalidates user sessions - do not change unless it is an emergency.
 	'wgAuthenticationTokenVersion' => [
 		'default' => '5',
@@ -4716,7 +4707,6 @@ function wfGetSettings() {
 		],
 	],
 ];
-}
 
 // Start settings requiring external dependency checks/functions
 if ( !preg_match( '/^(.*)\.(miraheze|betaheze)\.org$/', $wi->hostname, $matches ) ) {
