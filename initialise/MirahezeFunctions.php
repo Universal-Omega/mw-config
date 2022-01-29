@@ -29,7 +29,7 @@ class MirahezeFunctions {
 		$this->missing = $this->isMissing();
 	}
 
-	public function getLocalDatabases() {
+	public static function getLocalDatabases() {
 		$allDatabases = self::evalDbListExpression( 'all.dblist + beta.dblist - deleted.dblist' );
 		$productionDatabases = self::evalDbListExpression( 'all.dblist - deleted.dblist' );
 
